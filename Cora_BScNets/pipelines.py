@@ -7,7 +7,23 @@ import SIMBLOCKGNN as SIMGNN
 from sklearn.metrics import roc_auc_score,average_precision_score
 from torch.nn.init import xavier_normal_ as xavier
 
-def train():
+from tqdm import trange
+
+def evaluate_hits(dataset_name, pos_pred, neg_pred):
+    from ogb.linkproppred import Evaluator
+    evaluator = Evaluator(name=dataset_name)
+
+    results = {}
+
+    hits = evaluator.eval({
+        'y_pred_pos': pos_pred,
+        'y_pred_neg': neg_pred,
+    })[evaluator.eval_metric]
+    results[evaluator.eval_metric] = hits
+
+    return results
+
+def train(model, data):
     model.train()
     optimizer.zero_grad()
     emb = model.g_encode(data).clone()
@@ -17,7 +33,7 @@ def train():
     optimizer.step()
     return x
 
-def test():
+def test(model, data, d_name):
     model.eval()
     accs = []
     emb = model.g_encode(data)
@@ -31,12 +47,18 @@ def test():
             accs.append(roc)
             acc = average_precision_score(y,pred)
             accs.append(acc)
+
+            print(d_name, type, evaluate_hits(d_name, pred[:data.val_pos], pred[data.val_pos:]))
         else:
             pred = pred.data.numpy()
             roc = roc_auc_score(y, pred)
             accs.append(roc)
             acc = average_precision_score(y, pred)
             accs.append(acc)
+
+            #if roc > 0.95:
+            #    import ipdb; ipdb.set_trace()
+            print(d_name, type, evaluate_hits(d_name, pred[:data.test_pos], pred[data.test_pos:]))
     return accs
 
 def weights_init(m):
@@ -53,7 +75,8 @@ def setup_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 
-d_names = ["Cora"]
+#d_names = ["Cora"]
+d_names = ["ogbl-ddi"]
 times=range(1)
 
 
@@ -80,7 +103,9 @@ for d_name in d_names:
     dataset = lds.loaddatas(d_name)
     for data_cnt in times:
         for Conv_method in pipelines: # where Conv_method is SIMGNN
-            if d_name in ['Rand_nnodes_github1000', 'PPI']:
+            if d_name in ['ogbl-ddi']:
+                data = dataset
+            elif d_name in ['Rand_nnodes_github1000', 'PPI']:
                 data = dataset[data_cnt]
             else:
                 data = dataset[0]
@@ -99,10 +124,10 @@ for d_name in d_names:
             wait_step = 0
 
             # train and test
-            for epoch in range(1, total_epochs + 1):
+            for epoch in trange(1, total_epochs + 1):
                 print("epoch is:", epoch)
-                pred = train()
-                val_loss, val_roc, val_acc, tmp_test_roc, tmp_test_acc = test()
+                pred = train(model, data)
+                val_loss, val_roc, val_acc, tmp_test_roc, tmp_test_acc = test(model, data, d_name)
                 if val_roc >= best_val_roc:
                     test_acc = tmp_test_acc
                     test_roc = tmp_test_roc
@@ -116,7 +141,8 @@ for d_name in d_names:
                         print('Early stop! Min loss: ', best_val_loss, ', Max accuracy: ', best_val_acc,
                               ', Max roc: ', best_val_roc)
                         break
-                print(best_val_roc)
+                print('best_val_roc', best_val_roc, 'best_val_acc', best_val_acc)
+            torch.save({'model': model.state_dict(), 'data': data}, d_name + '_' + Conv_method + '.pkl')
             del model
             del data
             # print result
