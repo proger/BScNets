@@ -15,11 +15,14 @@ def evaluate_hits(dataset_name, pos_pred, neg_pred):
 
     results = {}
 
-    hits = evaluator.eval({
-        'y_pred_pos': pos_pred,
-        'y_pred_neg': neg_pred,
-    })[evaluator.eval_metric]
-    results[evaluator.eval_metric] = hits
+    for K in [10,20,50,100]:
+        evaluator.K = K
+        evaluator.eval_metric = f'hits@{K}'
+        hits = evaluator.eval({
+            'y_pred_pos': pos_pred,
+            'y_pred_neg': neg_pred,
+        })[evaluator.eval_metric]
+        results[evaluator.eval_metric] = hits
 
     return results
 
