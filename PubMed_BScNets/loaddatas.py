@@ -39,7 +39,11 @@ def get_adj_split(adj, val_prop=0.05, test_prop=0.1, seed = 1):
     x, y = sp.triu(adj).nonzero()
     pos_edges = np.array(list(zip(x, y)))
     np.random.shuffle(pos_edges)
-    neg_edges_ = np.load('pubmed_neg_edges.npz')['arr_0']
+
+    nx, ny = sp.triu(sp.csr_matrix(1. - adj.toarray())).nonzero()
+    neg_edges_ = np.array(list(zip(nx, ny)))
+    #neg_edges_ = np.load('pubmed_neg_edges.npz')['arr_0']
+
     indices = np.random.choice(neg_edges_.shape[0], neg_edges_.shape[0], replace=False)
     neg_edges = neg_edges_[indices, :]
     print("negative edges after shuffle: ", neg_edges.shape)

@@ -65,7 +65,7 @@ def load_synthetic_data(dataset_str, use_feats, data_path):
 adj, features, y = load_synthetic_data('disease_lp', use_feats= True, data_path= path + "/disease_lp")
 
 def get_disease_edgelist(adj):
-    g = nx.from_numpy_matrix(adj)
+    g = nx.from_numpy_array(adj)
     edges = list(g.edges())
     edge_index = torch.zeros(size=(2, len(edges) * 2), dtype=torch.int64)
     for i in range(len(edges)):
